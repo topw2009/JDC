@@ -496,7 +496,7 @@ func addCookie(cookie string) (int, string) {
 		}
 		//检查是否超过账号限制
 		allowNum := g.Cfg().GetInt("app.allowNum")
-		nowNum := len(ckList)
+		nowNum := len(ckList2)
 		if allowNum <= nowNum && allowNum != -1 {
 			return 400, "该节点账号已达上限，请更换节点添加！"
 		}
@@ -564,7 +564,7 @@ func addCookie(cookie string) (int, string) {
 		}
 		//检查是否超过账号限制
 		allowNum := g.Cfg().GetInt("app.allowNum")
-		nowNum := len(ckList)
+		nowNum := len(ckList2)
 		if allowNum <= nowNum && allowNum != -1 {
 			return 400, "账号已达上限，请更换节点添加！"
 		}

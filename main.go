@@ -122,11 +122,11 @@ func main() {
 func nodeInfo() interface{} {
 	cookies := getCookieList2()
 	allow := g.Cfg().GetInt("app.allowNum")
-	now := len(cookies)
+	now := len(cookies) - 1
 	var isAllow bool
 	var Num int
 	if allow > now {
-		Num = allow - now + 1
+		Num = allow - now
 		isAllow = true
 	} else if allow == -1 {
 		Num = -1
@@ -496,7 +496,7 @@ func addCookie(cookie string) (int, string) {
 		}
 		//检查是否超过账号限制
 		allowNum := g.Cfg().GetInt("app.allowNum")
-		nowNum := len(ckList2)
+		nowNum := len(ckList2) - 1
 		if allowNum <= nowNum && allowNum != -1 {
 			return 400, "该节点账号已达上限，请更换节点添加！"
 		}
@@ -564,7 +564,7 @@ func addCookie(cookie string) (int, string) {
 		}
 		//检查是否超过账号限制
 		allowNum := g.Cfg().GetInt("app.allowNum")
-		nowNum := len(ckList2)
+		nowNum := len(ckList2) - 1
 		if allowNum <= nowNum && allowNum != -1 {
 			return 400, "账号已达上限，请更换节点添加！"
 		}

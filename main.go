@@ -32,7 +32,7 @@ var Config string = `
     allowAdd        = 0 #是否允许添加账号（0允许1不允许）不允许添加时则只允许已有账号登录
     allowNum        = 99 #允许添加账号的最大数量,-1为不限制
 	dumpRouterMap   = false #路由显示，无需更改
-	cookieAutoCheck = 0 #自动检测所有cookie并进行失效删除/禁用，0为不检测，1为失效禁用，2为失效删除(每天6:30检测)
+	cookieAutoCheck = 0 #自动检测所有cookie并进行失效删除/禁用，0为不检测，1为失效禁用，2为失效删除(每个小时检测一次)
 
 
 #web服务设置
@@ -63,7 +63,7 @@ func main() {
 	printInfo()
 
 	//配置定时任务
-	gcron.Add("30 6 * * * *", autoCheckCookie)
+	gcron.Add("0 */1 * * * *", autoCheckCookie)
 	gcron.Entries()
 	log.Println("[SUCCESS] Cron is running!")
 
@@ -170,10 +170,12 @@ func nodeInfo() interface{} {
 
 //检测cookie列表并执行操作
 func autoCheckCookie() {
+	count := 0
 	conf := g.Cfg().GetInt("app.cookieAutoCheck")
 	if conf == 0 {
 		return
 	}
+	log.Println("开始账号状态检测...")
 	ckList := cookieList()
 	if j, err := gjson.DecodeToJson(ckList); err != nil {
 		log.Println("error！can't read the auth file!")
@@ -185,33 +187,35 @@ func autoCheckCookie() {
 		for _, v := range ckListArr {
 			ck, ok := v.(g.Map)
 			if !ok {
-				log.Println("error!can't get cklist")
+				log.Println("error!can't get cklist1")
 			}
+			print()
 			statusD := ck["status"]
-			status, ok := statusD.(int)
+			status, ok := statusD.(float64)
 			if !ok {
-				log.Println("error!can't get cklist")
+				log.Println("error!can't get cklist2")
 			}
 
-			idD := ck["_"]
+			idD := ck["_id"]
 			id, ok := idD.(string)
 
 			if !ok {
-				log.Println("error!can't get cklist")
+				log.Println("error!can't get cklist3")
 			}
 
 			if status == 4 {
+				count += 1
 				//检测配置项
 				if conf == 1 {
 					cookieDisable(id)
-				} else {
+				} else if conf == 2 {
 					cookieDel(id)
 				}
 
 			}
 		}
 	}
-
+	log.Println("成功检测到" + strconv.Itoa(count) + "个失效账号并已执行相关操作！")
 }
 
 //账号状态检测

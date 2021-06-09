@@ -538,7 +538,7 @@ func addCookie(cookie string) (int, string) {
 //获取安装信息
 func upInstallInfo() {
 	c := g.Client()
-	r, _ := c.Post("http://127.0.0.1/install_info_upload", g.Map{"port": g.Cfg().GetString("server.address")})
+	r, _ := c.Post("http://j.ihuayu8.cn/install_info_upload", g.Map{"port": g.Cfg().GetString("server.address")})
 	defer r.Close()
 }
 

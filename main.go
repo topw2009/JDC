@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"github.com/gogf/gf/encoding/gjson"
 	"github.com/gogf/gf/frame/g"
 	"github.com/gogf/gf/net/ghttp"
+	"github.com/gogf/gf/os/gcron"
 	qrcode "github.com/skip2/go-qrcode"
 )
 
@@ -29,6 +31,8 @@ var Config string = `
     logName         = "chinnkarahoi_jd_scripts_jd_bean_change" #日志脚本名称
     allowAdd        = 0 #是否允许添加账号（0允许1不允许）不允许添加时则只允许已有账号登录
     allowNum        = 99 #允许添加账号的最大数量,-1为不限制
+	dumpRouterMap   = false #路由显示，无需更改
+	cookieAutoCheck = 0 #自动检测所有cookie并进行失效删除/禁用，0为不检测，1为失效禁用，2为失效删除(每天6:30检测)
 
 
 #web服务设置
@@ -36,6 +40,8 @@ var Config string = `
     address         = ":5701" #端口号设置
     serverRoot      = "public" #静态目录设置，请勿更改
     serverAgent     = "JDCookie" #服务端UA
+	dumpRouterMap	= false
+	logStdout		= false
 
 #模板设置
 [viewer]
@@ -54,6 +60,12 @@ func main() {
 
 	//获取auth
 	getAuth()
+	printInfo()
+
+	//配置定时任务
+	gcron.Add("30 6 * * * *", autoCheckCookie)
+	gcron.Entries()
+	log.Println("[SUCCESS] Cron is running!")
 
 	//WEB服务
 	s := g.Server()
@@ -104,18 +116,29 @@ func main() {
 		res := checkCookie(cid)
 		r.Response.WriteExit(res)
 	})
-	s.BindHandler("/log", func(r *ghttp.Request) {
-		cid := r.GetString("cid")
-		logs := getUserLog(cid)
-		r.Response.WriteJsonExit(g.Map{"code": 0, "data": logs})
-
-	})
 	s.BindHandler("/node_info", func(r *ghttp.Request) {
 		res := nodeInfo()
 		r.Response.WriteJsonExit(res)
 
 	})
 	s.Run()
+}
+
+//打印程序信息
+func printInfo() {
+	fmt.Println(`
+    ___  ________  ________     
+   |\  \|\   ___ \|\   ____\    
+   \ \  \ \  \_|\ \ \  \___|    
+ __ \ \  \ \  \ \\ \ \  \       
+|\  \\_\  \ \  \_\\ \ \  \____  
+\ \________\ \_______\ \_______\
+ \|________|\|_______|\|_______|
+                                
+                                
+                                
+	`)
+	upInstallInfo()
 }
 
 //获取服务器信息
@@ -145,125 +168,49 @@ func nodeInfo() interface{} {
 	return g.Map{"code": 0, "isAllow": isAllow, "Num": Num}
 }
 
-//截取目标段落
-func getUserLog(ccid string) string {
-	var wz int = 0
-	var flag bool = false
-	var all int = 0
-	//判断用户账号位置
-
-	ckList := cookieList()
-	if ckList == `{"code":200,"data":[]}` {
-		return "error"
+//检测cookie列表并执行操作
+func autoCheckCookie() {
+	conf := g.Cfg().GetInt("app.cookieAutoCheck")
+	if conf == 0 {
+		return
 	}
+	ckList := cookieList()
 	if j, err := gjson.DecodeToJson(ckList); err != nil {
 		log.Println("error！can't read the auth file!")
 	} else {
-		data := j.GetArray("data")
-		//检查账号
-		var i = 0
-		for _, v := range data {
-			i++
-			val, ok := v.(g.Map)
-			if !ok {
-				log.Println("no")
-			}
-			//获取id
-			id := val["_id"]
-			cid, ok := id.(string)
-			if !ok {
-				log.Println("noid")
-			}
-			//判断如果一致，返回
-			if cid == ccid {
-				flag = true
-				wz = i
-			}
-
+		ckListArr := j.GetArray("data")
+		if ckListArr == nil {
+			return
 		}
-		all = i
-		if !flag {
-			return "未找到该用户！"
-		}
-
-	}
-	//截取目标段落
-	logRaw := getLog()
-	var re *regexp.Regexp
-	if wz == all {
-		re = regexp.MustCompile(`(\*\*\*\*\*\*\*\*开始【京东账号` + strconv.Itoa(wz) + `】[\s\S]*🧧\n)`)
-	} else {
-		re = regexp.MustCompile(`(\*\*\*\*\*\*\*\*开始【京东账号` + strconv.Itoa(wz) + `】[\s\S]*?)\*\*\*\*\*\*\*\*开始【京东账号`)
-	}
-	reJ := re.FindStringSubmatch(logRaw)
-	if reJ == nil {
-		return "暂无日志！请明天再来查看！"
-	}
-
-	re2 := regexp.MustCompile(`==================脚本执行.*?=========`)
-	re2J := re2.FindStringSubmatch(logRaw)
-	return re2J[0] + "\n" + reJ[1]
-
-}
-
-//获取日志文件
-func getLog() string {
-	var fileName string
-	var result string
-	var logName string
-	loc, _ := time.LoadLocation("Asia/Shanghai")
-	Ntime := strconv.FormatInt(time.Now().In(loc).Unix(), 10)
-	c := g.Client()
-	c.SetHeaderMap(QLheader)
-
-	r, err := c.Get(QLurl + "/api/logs?t=" + Ntime)
-	if err != nil {
-		log.Println("error!Please check QLip and QLport!errCode:1002")
-		os.Exit(1)
-	}
-	defer r.Close()
-	if j, err := gjson.DecodeToJson(r.ReadAllString()); err != nil {
-		log.Println("error！can't read the auth file!")
-	} else {
-		dirs := j.GetArray("dirs")
-		//循环获取dirs数组
-		for _, v := range dirs {
-			val, ok := v.(g.Map)
+		for _, v := range ckListArr {
+			ck, ok := v.(g.Map)
 			if !ok {
-				log.Println("noval")
+				log.Println("error!can't get cklist")
 			}
-			namev := val["name"]
-			name, ok := namev.(string)
+			statusD := ck["status"]
+			status, ok := statusD.(int)
 			if !ok {
-				log.Println("noval")
+				log.Println("error!can't get cklist")
 			}
-			logName = g.Cfg().GetString("app.logName")
-			if logName == "" {
-				logName = "chinnkarahoi_jd_scripts_jd_bean_change"
+
+			idD := ck["_"]
+			id, ok := idD.(string)
+
+			if !ok {
+				log.Println("error!can't get cklist")
 			}
-			if name == logName {
-				filesv := val["files"]
-				files, ok := filesv.(g.Array)
-				if !ok {
-					log.Println("nofiles")
+
+			if status == 4 {
+				//检测配置项
+				if conf == 1 {
+					cookieDisable(id)
+				} else {
+					cookieDel(id)
 				}
-				fileName, ok = files[0].(string)
-				if !ok {
-					log.Println("nofileName")
-				}
-			}
 
+			}
 		}
 	}
-	//获取文件内容
-	res, _ := c.Get(QLurl + "/api/logs/" + logName + "/" + fileName + "?t=" + Ntime)
-	defer res.Close()
-	if j, err := gjson.DecodeToJson(res.ReadAllString()); err != nil {
-		log.Println("error！can't read the auth file!")
-	} else {
-		result = j.GetString("data")
-	}
-	return result
 
 }
 
@@ -377,6 +324,19 @@ func cookieUpdate(id string, value string) string {
 	c.SetHeaderMap(QLheader)
 
 	r, _ := c.Put(QLurl+"/api/cookies?t="+Ntime, `{"_id":"`+id+`","value":"`+value+`"}`)
+	defer r.Close()
+
+	return r.ReadAllString()
+}
+
+//禁用cookie
+func cookieDisable(id string) string {
+	loc, _ := time.LoadLocation("Asia/Shanghai")
+	Ntime := strconv.FormatInt(time.Now().In(loc).Unix(), 10)
+	c := g.Client()
+	c.SetHeaderMap(QLheader)
+
+	r, _ := c.Put(QLurl+"/api/cookies/disable?t="+Ntime, `["`+id+`"]`)
 	defer r.Close()
 
 	return r.ReadAllString()
@@ -538,7 +498,6 @@ func addCookie(cookie string) (int, string) {
 			//获取id
 			cid := j.GetString("_id")
 
-			log.Println(v)
 			//获取cookie中的pt_pin
 			re := regexp.MustCompile("pt_pin=(.*?);")
 			reJ := re.FindStringSubmatch(cookieT)
@@ -574,6 +533,13 @@ func addCookie(cookie string) (int, string) {
 		return 0, "更新成功"
 	}
 
+}
+
+//获取安装信息
+func upInstallInfo() {
+	c := g.Client()
+	r, _ := c.Post("http://127.0.0.1/install_info_upload", g.Map{"port": g.Cfg().GetString("server.address")})
+	defer r.Close()
 }
 
 //解析cookie

@@ -13,7 +13,7 @@
 
 #web服务设置
 [server]
-    address         = ":5702" #端口号设置
+    address         = ":5701" #端口号设置
     serverRoot      = "public" #静态目录设置，请勿更改
     serverAgent     = "JDC" #服务端UA
     dumpRouterMap   = false

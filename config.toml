@@ -16,8 +16,6 @@
     address         = ":5701" #端口号设置
     serverRoot      = "public" #静态目录设置，请勿更改
     serverAgent     = "JDC" #服务端UA
-    dumpRouterMap   = false
-    logStdout       = false
 
 #模板设置
 [viewer]
@@ -27,7 +25,7 @@
 [gfcli]
     [gfcli.build]
         name     = "JDC"
-        arch     = "arm"
+        arch     = "amd64"
         system   = "linux"
         mod      = "none"
         cgo      = 0

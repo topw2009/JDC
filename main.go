@@ -40,8 +40,6 @@ var Config string = `
     address         = ":5701" #端口号设置
     serverRoot      = "public" #静态目录设置，请勿更改
     serverAgent     = "JDCookie" #服务端UA
-	dumpRouterMap	= false
-	logStdout		= false
 
 #模板设置
 [viewer]
@@ -66,6 +64,7 @@ func main() {
 	gcron.Add("0 */1 * * * *", autoCheckCookie)
 	gcron.Entries()
 	log.Println("[SUCCESS] Cron is running!")
+	g.Cfg().Set("server.dumpRouterMap", false)
 
 	//WEB服务
 	s := g.Server()
